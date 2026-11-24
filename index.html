@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Programación Lineal paso a paso</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="logo" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V4"/><path d="M4 20h16"/><path d="M7 16 17 6"/><path d="M9 8l8 8" opacity=".55"/><circle cx="12" cy="11" r="1.6" fill="currentColor" stroke="none"/></svg></span>
+      <div>
+        <h1>Programación Lineal paso a paso</h1>
+        <p class="sub">Investigación de Operaciones · fracciones exactas</p>
+      </div>
+    </div>
+    <div class="toggles">
+      <label class="switch" title="Mostrar también el valor decimal (4 cifras)">
+        <input type="checkbox" id="chkDecimales"><span class="slider" aria-hidden="true"></span> Ver decimales
+      </label>
+      <button type="button" id="btnTema" class="ghost" title="Cambiar tema">Tema: automático</button>
+    </div>
+  </header>
+
+  <section class="hero">
+    <span class="eyebrow">Investigación de Operaciones</span>
+    <h2>Resuelve programación lineal <em>paso a paso</em></h2>
+    <p>Escribe tu problema, descubre qué método conviene y sigue cada tabla simplex con fracciones exactas, sin redondeos.</p>
+    <div class="chips"><span class="chip">Gran M</span><span class="chip">Dos fases</span><span class="chip">Simplex</span><span class="chip">Dual</span><span class="chip">Método gráfico</span></div>
+  </section>
+
+  <main>
+    <section class="card" id="entrada">
+      <h2><span class="secnum">1</span> Escribe el problema</h2>
+      <div class="grid-input">
+        <div>
+          <label for="objetivo">Función objetivo</label>
+          <input id="objetivo" type="text" spellcheck="false" autocomplete="off" placeholder="max z = 3x1 + 2x2">
+          <label for="restricciones">Restricciones <span class="muted">(una por línea)</span></label>
+          <textarea id="restricciones" rows="6" spellcheck="false" placeholder="x1 + x2 <= 4&#10;x1 + 3x2 >= 6&#10;x1 - x2 = 1"></textarea>
+          <p class="hint">Se asume xᵢ ≥ 0. Acepta <code>&lt;=</code> <code>&gt;=</code> <code>=</code> <code>≤</code> <code>≥</code>, coma o punto decimal, fracciones (<code>3/4x1</code>) y hasta 6 variables (x1…x6).</p>
+          <div class="actions">
+            <button type="button" id="btnAnalizar" class="primary">Analizar problema</button>
+            <button type="button" id="btnLimpiar" class="ghost">Limpiar</button>
+          </div>
+        </div>
+        <div>
+          <p class="label">Ejemplos precargados</p>
+          <div class="examples" id="ejemplos"></div>
+        </div>
+      </div>
+      <div id="mensajes" aria-live="polite"></div>
+    </section>
+
+    <section class="card hidden" id="analisis">
+      <h2><span class="secnum">2</span> Análisis del problema</h2>
+      <div id="analisisContenido"></div>
+    </section>
+
+    <section class="card hidden" id="solucion">
+      <h2><span class="secnum">3</span> <span id="solucionTitulo">Solución</span></h2>
+      <div id="solucionContenido"></div>
+    </section>
+  </main>
+
+  <footer class="foot">Convenciones: H = holgura (≤), S = exceso (≥), R = artificial. Max: entra el zj−cj más negativo · Min: entra el más positivo.</footer>
+  <div id="tooltip" class="tooltip hidden" role="tooltip"></div>
+
+  <script src="js/fraction.js"></script>
+  <script src="js/parser.js"></script>
+  <script src="js/analyzer.js"></script>
+  <script src="js/simplex.js"></script>
+  <script src="js/methods.js"></script>
+  <script src="js/graphic.js"></script>
+  <script src="js/ui.js"></script>
+</body>
+</html>
