@@ -4,7 +4,7 @@
   'use strict';
   const LP = G.LP = G.LP || {};
   const Fraction = LP.Fraction;
-  const MAX_VARS = 6;
+  const MAX_VARS = 12;
 
   class ParseError extends Error {}
 
@@ -179,6 +179,57 @@
   }
 
   const OP_SYMBOL = { '<=': '≤', '>=': '≥', '=': '=' };
+
+  /**
+   * Convierte el formulario por casillas en el texto que entiende parseProblem.
+   * f = { sense: 'max'|'min', nvars, c: [texto], rows: [{ a: [texto], op, b }] }
+   * Casillas vacías (o 0) = la variable no aparece. Filas totalmente vacías se ignoran.
+   */
+  function builderToText(f) {
+    const errors = [];
+    const n = Math.max(1, Math.min(MAX_VARS, f.nvars | 0));
+    const txt = (s) => String(s === undefined || s === null ? '' : s).trim();
+    const num = (s, where) => {
+      const t = txt(s);
+      if (t === '') return null;
+      try { return Fraction.parse(t); } catch (e) {
+        errors.push(`${where}: "${t}" no es un número válido (usa 3, -2, 0.85, 1,1 o 3/4).`);
+        return undefined;
+      }
+    };
+    const expr = (vals, where) => {
+      let out = '';
+      for (let j = 0; j < n; j++) {
+        const v = num(vals[j], `${where}, casilla x${j + 1}`);
+        if (!v || v.isZero()) continue;
+        const neg = v.sign() < 0, s = v.abs().toString();
+        const term = (s === '1' ? '' : s) + 'x' + (j + 1);
+        out += out === '' ? (neg ? '-' : '') + term : (neg ? ' - ' : ' + ') + term;
+      }
+      return out;
+    };
+    const objExpr = expr(f.c || [], 'Función objetivo');
+    if (!objExpr && !errors.length) errors.push('Función objetivo: escribe al menos un coeficiente distinto de 0.');
+    const objective = `${f.sense === 'min' ? 'min' : 'max'} z = ${objExpr || '0'}`;
+    const lines = [];
+    (f.rows || []).forEach((r, i) => {
+      const where = `Restricción ${i + 1}`;
+      const a = (r.a || []).slice(0, n);
+      const hasCoef = a.some((s) => txt(s) !== '');
+      if (!hasCoef && txt(r.b) === '') return;            // fila vacía: se ignora
+      const before = errors.length;
+      const lhs = expr(a, where);
+      const b = num(r.b, `${where}, lado derecho`);
+      if (errors.length > before) return;
+      if (!lhs) { errors.push(`${where}: todos los coeficientes están vacíos o son 0.`); return; }
+      if (b === null) { errors.push(`${where}: falta el lado derecho (después del signo).`); return; }
+      const op = ['<=', '>=', '='].includes(r.op) ? r.op : '<=';
+      lines.push(`${lhs} ${op} ${b.toString()}`);
+    });
+    if (!lines.length && !errors.length) errors.push('Agrega al menos una restricción con sus coeficientes.');
+    return { objective, constraints: lines.join('\n'), errors };
+  }
+  LP.builderToText = builderToText;
 
   LP.parseProblem = parseProblem;
   LP.parseExpression = parseExpression;

@@ -5,17 +5,23 @@
   const $ = (s) => document.querySelector(s);
   const state = { problem: null, analysis: null, view: null, stepIdx: 0, showAll: false, decimals: false };
 
+  const MAXV = LP.MAX_VARS;   // 12
+  /* Ejemplos en forma de casillas: c = coeficientes de z; rows = [coeficientes, signo, lado derecho]. '' = vacío (0). */
   const EXAMPLES = [
-    { t: '1 · Min con =, ≥ y ≤', d: 'Dos fases / Gran M', obj: 'min z = 4x1 + x2', cons: '3x1 + x2 = 3\n4x1 + 3x2 >= 6\nx1 + 2x2 <= 4' },
-    { t: '2 · Max con dos artificiales', d: 'Gran M', obj: 'max z = 3x1 + 2x2', cons: 'x1 + x2 = 6\nx1 <= 4\nx1 + 3x2 >= 6' },
-    { t: '3 · Max con una ≥', d: 'Gran M / Dos fases', obj: 'max z = 2x1 + 3x2', cons: 'x1 + x2 <= 10\n3x1 - x2 >= 6\n2x1 + x2 <= 16' },
-    { t: '4 · Fracciones feas', d: '3 variables, decimales', obj: 'max z = 265x1 + 270x2 + 262x3', cons: '0.85x1 + 1.1x2 + 6.9x3 >= 500\n24x1 + 28x2 + 25x3 <= 13000\n22x1 + 24x2 + 20x3 <= 12000' },
-    { t: '5 · Todas ≤', d: 'Simplex normal y gráfico', obj: 'max z = 5x1 + 4x2', cons: '6x1 + 4x2 <= 24\nx1 + 2x2 <= 6\nx2 <= 2\n-x1 + x2 <= 1' },
-    { t: '6 · Min con 4 variables', d: 'Dos fases / dual', obj: 'min z = 24x1 + 6x2 + 2x3 + x4', cons: '6x1 + x2 - x4 >= 5\n4x1 + 2x2 + x3 + x4 >= 4' },
-    { t: '7 · Infactible', d: 'Caso especial', obj: 'max z = x1 + x2', cons: 'x1 + x2 <= 2\nx1 + x2 >= 5' },
-    { t: '8 · No acotado', d: 'Caso especial', obj: 'max z = x1 + x2', cons: 'x1 - x2 <= 1' },
-    { t: '9 · Óptimos múltiples', d: 'Caso especial', obj: 'max z = x1 + x2', cons: 'x1 + x2 <= 4\nx1 <= 3' },
+    { t: '1 · Min con =, ≥ y ≤ (dos fases / Gran M)', s: 'min', c: ['4', '1'], rows: [[['3', '1'], '=', '3'], [['4', '3'], '>=', '6'], [['1', '2'], '<=', '4']] },
+    { t: '2 · Max con dos artificiales (Gran M)', s: 'max', c: ['3', '2'], rows: [[['1', '1'], '=', '6'], [['1', ''], '<=', '4'], [['1', '3'], '>=', '6']] },
+    { t: '3 · Max con una ≥', s: 'max', c: ['2', '3'], rows: [[['1', '1'], '<=', '10'], [['3', '-1'], '>=', '6'], [['2', '1'], '<=', '16']] },
+    { t: '4 · Fracciones feas (3 variables, decimales)', s: 'max', c: ['265', '270', '262'], rows: [[['0.85', '1.1', '6.9'], '>=', '500'], [['24', '28', '25'], '<=', '13000'], [['22', '24', '20'], '<=', '12000']] },
+    { t: '5 · Todas ≤ (simplex normal y gráfico)', s: 'max', c: ['5', '4'], rows: [[['6', '4'], '<=', '24'], [['1', '2'], '<=', '6'], [['', '1'], '<=', '2'], [['-1', '1'], '<=', '1']] },
+    { t: '6 · Min con 4 variables (dual)', s: 'min', c: ['24', '6', '2', '1'], rows: [[['6', '1', '', '-1'], '>=', '5'], [['4', '2', '1', '1'], '>=', '4']] },
+    { t: '7 · Infactible', s: 'max', c: ['1', '1'], rows: [[['1', '1'], '<=', '2'], [['1', '1'], '>=', '5']] },
+    { t: '8 · No acotado', s: 'max', c: ['1', '1'], rows: [[['1', '-1'], '<=', '1']] },
+    { t: '9 · Óptimos múltiples', s: 'max', c: ['1', '1'], rows: [[['1', '1'], '<=', '4'], [['1', ''], '<=', '3']] },
   ];
+  const pad = (arr) => Array.from({ length: MAXV }, (_, j) => (arr && arr[j] !== undefined ? arr[j] : ''));
+  const emptyRow = () => ({ a: pad([]), op: '<=', b: '' });
+  /* Estado del formulario por casillas */
+  state.builder = { sense: 'max', nvars: 2, c: pad([]), rows: [emptyRow()] };
 
   /* ---------- Formato ---------- */
   const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -48,16 +54,97 @@
   const opSym = (op) => LP.OP_SYMBOL[op] || op;
   const statusText = { optimal: 'Solución óptima', infeasible: 'Problema INFACTIBLE', unbounded: 'Problema NO ACOTADO', cycle: 'Se detuvo (posible ciclaje)' };
 
-  /* ---------- Entrada ---------- */
-  function renderExamples() {
-    $('#ejemplos').innerHTML = EXAMPLES.map((e, i) => `<button type="button" data-ex="${i}"><b>${esc(e.t)}</b><span>${esc(e.d)}</span></button>`).join('');
-    $('#ejemplos').addEventListener('click', (ev) => {
-      const b = ev.target.closest('button[data-ex]');
-      if (!b) return;
-      const e = EXAMPLES[+b.dataset.ex];
-      $('#objetivo').value = e.obj;
-      $('#restricciones').value = e.cons;
+  /* ---------- Entrada por casillas ---------- */
+  const OPS = [['<=', '≤'], ['>=', '≥'], ['=', '=']];
+
+  function coefCells(vals, n, attrs) {
+    let h = '';
+    for (let j = 0; j < n; j++) {
+      h += `${j > 0 ? '<span class="plus" aria-hidden="true">+</span>' : ''}<span class="term">` +
+        `<input type="text" class="coef" inputmode="text" autocomplete="off" spellcheck="false" placeholder="0" ${attrs} data-j="${j}" value="${esc(vals[j])}" aria-label="Coeficiente de x${j + 1}">` +
+        `<span class="xv">x<sub>${j + 1}</sub></span></span>`;
+    }
+    return h;
+  }
+
+  function renderBuilder() {
+    const B = state.builder, n = B.nvars;
+    $('#selNvars').value = String(n);
+    $('#filaObjetivo').innerHTML =
+      `<select class="sense" data-k="sense" aria-label="Maximizar o minimizar">
+         <option value="max" ${B.sense === 'max' ? 'selected' : ''}>max</option>
+         <option value="min" ${B.sense === 'min' ? 'selected' : ''}>min</option>
+       </select><span class="zeq">z =</span>` + coefCells(B.c, n, 'data-k="c"');
+    $('#filasRestricciones').innerHTML = B.rows.map((r, i) =>
+      `<div class="brow">
+         <span class="rnum">(${i + 1})</span>${coefCells(r.a, n, `data-k="a" data-i="${i}"`)}
+         <select class="op" data-k="op" data-i="${i}" aria-label="Signo de la restricción ${i + 1}">
+           ${OPS.map(([v, s]) => `<option value="${v}" ${r.op === v ? 'selected' : ''}>${s}</option>`).join('')}
+         </select>
+         <input type="text" class="coef rhs" autocomplete="off" spellcheck="false" placeholder="b" data-k="b" data-i="${i}" value="${esc(r.b)}" aria-label="Lado derecho de la restricción ${i + 1}">
+         <button type="button" class="del" data-del="${i}" title="Quitar restricción" aria-label="Quitar restricción ${i + 1}" ${B.rows.length === 1 ? 'disabled' : ''}>×</button>
+       </div>`).join('');
+    updatePreview();
+  }
+
+  function updatePreview() {
+    const t = LP.builderToText(state.builder);
+    const sym = (s) => s.replace(/<=/g, '≤').replace(/>=/g, '≥');
+    const lines = [t.objective, ...(t.constraints ? t.constraints.split('\n') : []).map((l, i) => `(${i + 1}) ${sym(l)}`),
+      `x1…x${state.builder.nvars} ≥ 0`];
+    $('#preview').textContent = lines.join('\n');
+    // Marca casillas con texto que no es número
+    document.querySelectorAll('#entrada input.coef').forEach((inp) => {
+      let bad = false;
+      if (inp.value.trim() !== '') { try { LP.Fraction.parse(inp.value); } catch (e) { bad = true; } }
+      inp.classList.toggle('invalid', bad);
+      inp.setAttribute('aria-invalid', bad ? 'true' : 'false');
+    });
+  }
+
+  function loadExample(e) {
+    const n = Math.max(e.c.length, ...e.rows.map((r) => r[0].length));
+    state.builder = { sense: e.s, nvars: n, c: pad(e.c), rows: e.rows.map(([a, op, b]) => ({ a: pad(a), op, b })) };
+    renderBuilder();
+  }
+
+  function initBuilder() {
+    $('#selEjemplo').innerHTML = '<option value="">— Elige un ejemplo —</option>' +
+      EXAMPLES.map((e, i) => `<option value="${i}">${esc(e.t)}</option>`).join('');
+    $('#selNvars').innerHTML = Array.from({ length: MAXV }, (_, k) => `<option value="${k + 1}">${k + 1} variable${k ? 's' : ''} (x1…x${k + 1})</option>`).join('');
+    $('#selEjemplo').addEventListener('change', (ev) => {
+      if (ev.target.value === '') return;
+      loadExample(EXAMPLES[+ev.target.value]);
       analyze();
+    });
+    $('#selNvars').addEventListener('change', (ev) => { state.builder.nvars = +ev.target.value; renderBuilder(); });
+    const entrada = $('#entrada');
+    const onEdit = (ev) => {
+      const el = ev.target, k = el.dataset && el.dataset.k;
+      if (!k) return;
+      const B = state.builder, i = +el.dataset.i, j = +el.dataset.j;
+      if (k === 'sense') B.sense = el.value;
+      else if (k === 'c') B.c[j] = el.value;
+      else if (k === 'a') B.rows[i].a[j] = el.value;
+      else if (k === 'op') B.rows[i].op = el.value;
+      else if (k === 'b') B.rows[i].b = el.value;
+      $('#selEjemplo').value = '';
+      updatePreview();
+    };
+    entrada.addEventListener('input', onEdit);
+    entrada.addEventListener('change', onEdit);
+    entrada.addEventListener('keydown', (ev) => { if (ev.key === 'Enter' && ev.target.matches('input.coef')) analyze(); });
+    entrada.addEventListener('click', (ev) => {
+      const d = ev.target.closest('button[data-del]');
+      if (!d) return;
+      state.builder.rows.splice(+d.dataset.del, 1);
+      renderBuilder();
+    });
+    $('#btnAgregar').addEventListener('click', () => {
+      state.builder.rows.push(emptyRow());
+      renderBuilder();
+      const rows = document.querySelectorAll('#filasRestricciones .brow');
+      rows[rows.length - 1].querySelector('input').focus();
     });
   }
 
@@ -70,8 +157,10 @@
 
   function analyze() {
     let r;
-    try { r = LP.parseProblem($('#objetivo').value, $('#restricciones').value); }
-    catch (e) { r = { ok: false, errors: ['Error inesperado al leer: ' + e.message] }; }
+    try {
+      const t = LP.builderToText(state.builder);
+      r = t.errors.length ? { ok: false, errors: t.errors } : LP.parseProblem(t.objective, t.constraints);
+    } catch (e) { r = { ok: false, errors: ['Error inesperado al leer: ' + e.message] }; }
     showMessages(r.errors, r.warnings);
     $('#solucion').classList.add('hidden');
     if (!r.ok) { $('#analisis').classList.add('hidden'); state.problem = null; return; }
@@ -328,12 +417,12 @@
   function bind() {
     $('#btnAnalizar').addEventListener('click', analyze);
     $('#btnLimpiar').addEventListener('click', () => {
-      $('#objetivo').value = ''; $('#restricciones').value = '';
+      state.builder = { sense: 'max', nvars: state.builder.nvars, c: pad([]), rows: [emptyRow()] };
+      $('#selEjemplo').value = '';
+      renderBuilder();
       $('#mensajes').innerHTML = ''; $('#analisis').classList.add('hidden'); $('#solucion').classList.add('hidden');
-      $('#objetivo').focus();
+      $('#filaObjetivo input').focus();
     });
-    $('#objetivo').addEventListener('keydown', (e) => { if (e.key === 'Enter') analyze(); });
-    $('#restricciones').addEventListener('keydown', (e) => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) analyze(); });
 
     $('#analisisContenido').addEventListener('click', (e) => {
       const b = e.target.closest('button[data-solve]');
@@ -409,9 +498,9 @@
     });
   }
 
-  renderExamples();
+  initBuilder();
   bind();
-  // Arranca con un ejemplo cargado para que la página no esté vacía.
-  $('#objetivo').value = EXAMPLES[0].obj;
-  $('#restricciones').value = EXAMPLES[0].cons;
+  // Arranca con el ejemplo 1 cargado en las casillas para que la página no esté vacía.
+  loadExample(EXAMPLES[0]);
+  $('#selEjemplo').value = '0';
 })();

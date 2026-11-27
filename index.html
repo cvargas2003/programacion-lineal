@@ -32,23 +32,33 @@
 
   <main>
     <section class="card" id="entrada">
-      <h2><span class="secnum">1</span> Escribe el problema</h2>
-      <div class="grid-input">
-        <div>
-          <label for="objetivo">Función objetivo</label>
-          <input id="objetivo" type="text" spellcheck="false" autocomplete="off" placeholder="max z = 3x1 + 2x2">
-          <label for="restricciones">Restricciones <span class="muted">(una por línea)</span></label>
-          <textarea id="restricciones" rows="6" spellcheck="false" placeholder="x1 + x2 <= 4&#10;x1 + 3x2 >= 6&#10;x1 - x2 = 1"></textarea>
-          <p class="hint">Se asume xᵢ ≥ 0. Acepta <code>&lt;=</code> <code>&gt;=</code> <code>=</code> <code>≤</code> <code>≥</code>, coma o punto decimal, fracciones (<code>3/4x1</code>) y hasta 6 variables (x1…x6).</p>
-          <div class="actions">
-            <button type="button" id="btnAnalizar" class="primary">Analizar problema</button>
-            <button type="button" id="btnLimpiar" class="ghost">Limpiar</button>
-          </div>
+      <h2><span class="secnum">1</span> Arma el problema</h2>
+      <div class="builder-top">
+        <div class="field">
+          <label for="selEjemplo">Ejemplo</label>
+          <select id="selEjemplo"></select>
         </div>
-        <div>
-          <p class="label">Ejemplos precargados</p>
-          <div class="examples" id="ejemplos"></div>
+        <div class="field">
+          <label for="selNvars">Número de variables</label>
+          <select id="selNvars"></select>
         </div>
+      </div>
+
+      <p class="label">Función objetivo</p>
+      <div class="builder-wrap"><div class="brow" id="filaObjetivo"></div></div>
+
+      <p class="label">Sujeto a <span class="muted">(restricciones)</span></p>
+      <div class="builder-wrap"><div id="filasRestricciones"></div></div>
+      <button type="button" id="btnAgregar" class="add-row">+ Agregar restricción</button>
+
+      <p class="hint">Deja la casilla vacía si el coeficiente es 0 (esa variable no aparece). Acepta enteros, negativos (<code>-2</code>), decimales con punto o coma (<code>0.85</code>, <code>1,1</code>) y fracciones (<code>3/4</code>). Se asume xᵢ ≥ 0.</p>
+
+      <p class="label">Así queda escrito</p>
+      <pre class="preview" id="preview"></pre>
+
+      <div class="actions">
+        <button type="button" id="btnAnalizar" class="primary">Analizar problema</button>
+        <button type="button" id="btnLimpiar" class="ghost">Limpiar</button>
       </div>
       <div id="mensajes" aria-live="polite"></div>
     </section>

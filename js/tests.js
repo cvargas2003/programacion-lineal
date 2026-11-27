@@ -69,7 +69,25 @@ group('Parser');
   eqF(s.constraints[0].b, 6, 'constantes movidas al lado derecho');
   ok(!LP.parseProblem('z = 3x1', 'x1 <= 2').ok, 'error si falta max/min');
   ok(!LP.parseProblem('max z = 3x1 + 2y', 'x1 <= 2').ok, 'error con variable desconocida');
-  ok(!LP.parseProblem('max z = 3x1', 'x1 + x7 <= 2').ok, 'error con más de 6 variables');
+  ok(!LP.parseProblem('max z = 3x1', 'x1 + x13 <= 2').ok, 'error con más de 12 variables');
+  ok(LP.parseProblem('max z = x1 + x12', 'x1 + x12 <= 2').ok, 'acepta hasta x12');
+}
+
+group('Constructor por casillas');
+{
+  const t = LP.builderToText({ sense: 'min', nvars: 4, c: ['4', '', '-1', '0'],
+    rows: [{ a: ['0.85', '1,1', '', ''], op: '>=', b: '500' }, { a: ['', '', '', ''], op: '<=', b: '' }, { a: ['3/4', '-1', '', ''], op: '=', b: '2' }] });
+  ok(t.errors.length === 0, 'formulario válido sin errores');
+  ok(t.objective === 'min z = 4x1 - x3', 'objetivo: casillas vacías y 0 se omiten → ' + t.objective);
+  ok(t.constraints === '17/20x1 + 11/10x2 >= 500\n3/4x1 - x2 = 2', 'restricciones (fila vacía ignorada) → ' + JSON.stringify(t.constraints));
+  const p = LP.parseProblem(t.objective, t.constraints);
+  ok(p.ok && p.problem.n === 3 && p.problem.m === 2, 'el texto generado lo lee el parser (3 variables, 2 restricciones)');
+  ok(LP.builderToText({ sense: 'max', nvars: 2, c: ['abc', '1'], rows: [{ a: ['1', ''], op: '<=', b: '4' }] }).errors.length === 1, 'error si una casilla no es número');
+  ok(/falta el lado derecho/.test(LP.builderToText({ sense: 'max', nvars: 2, c: ['1', '1'], rows: [{ a: ['1', '1'], op: '<=', b: '' }] }).errors[0]), 'error si falta el lado derecho');
+  ok(LP.builderToText({ sense: 'max', nvars: 1, c: ['1', '5'], rows: [{ a: ['1', '9'], op: '<=', b: '4' }] }).objective === 'max z = x1', 'ignora casillas de variables ocultas');
+  const big = LP.builderToText({ sense: 'max', nvars: 12, c: Array(12).fill('1'), rows: [{ a: Array(12).fill('1'), op: '<=', b: '10' }] });
+  const pb = LP.parseProblem(big.objective, big.constraints);
+  ok(pb.ok && pb.problem.n === 12 && LP.solveSimplexNormal(pb.problem).z.equals(F(10)), '12 variables: se resuelve (z = 10)');
   ok(!LP.parseProblem('max z = 3x1', 'x1 + x2 4').ok, 'error si falta el signo de relación');
   ok(!LP.parseProblem('max z = 3x1', '2x1 3x2 <= 4').ok, 'error si falta + entre términos');
   const e = LP.parseProblem('max z = 3x1', 'x1 <= 2 <= 3');
