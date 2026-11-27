@@ -167,8 +167,8 @@
       const seg = clipLine(g.c[0].toNumber(), g.c[1].toNumber(), g.optimum.z.toNumber(), X, Y);
       if (seg) {
         parts.push(`<line class="g-level" x1="${px(seg[0][0])}" y1="${py(seg[0][1])}" x2="${px(seg[1][0])}" y2="${py(seg[1][1])}"/>`);
-        const e = seg[0];   // extremo izquierdo de la recta (lejos de los vértices del eje x1)
-        parts.push(`<text class="g-label g-levtext" x="${Math.min(px(e[0]) + 8, W - mr - 120)}" y="${Math.min(Math.max(py(e[1]) - 8, mt + 12), H - mb - 8)}">z = ${escX(g.optimum.z.toString())}</text>`);
+        const e = seg[1];   // extremo derecho: la etiqueta queda fuera de la región, junto a la recta
+        parts.push(`<text class="g-label g-levtext" x="${Math.min(px(e[0]) + 8, W - mr - 90)}" y="${Math.min(Math.max(py(e[1]) - 10, mt + 12), H - mb - 8)}">z = ${escX(g.optimum.z.toString())}</text>`);
       }
     }
     // Ejes
